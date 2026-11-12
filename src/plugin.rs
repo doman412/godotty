@@ -19,7 +19,7 @@ use crate::terminal::Terminal;
 /// Editor chords the terminal leaves unconsumed, comma separated.
 pub(crate) const PASSTHROUGH_SETTING: &str = "godotty/terminal/passthrough_shortcuts";
 #[cfg(target_os = "macos")]
-const PASSTHROUGH_DEFAULT: &str = "Meta+Shift+P";
+const PASSTHROUGH_DEFAULT: &str = "Command+Shift+P";
 #[cfg(not(target_os = "macos"))]
 const PASSTHROUGH_DEFAULT: &str = "Ctrl+Shift+P";
 
