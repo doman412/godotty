@@ -143,15 +143,15 @@ impl Fonts {
         }
     }
 
-    /// Emoji cells prefer color; text cells prefer monochrome, taking Noto's
-    /// mono emoji first (matching ghostty for media/clock symbols) then
-    /// JuliaMono for the rest; system fonts cover uncovered scripts, with
+    /// Emoji cells prefer color; text cells prefer monochrome, taking
+    /// JuliaMono first so symbols such as U+23FA draw as plain glyphs, then
+    /// Noto's mono emoji; system fonts cover uncovered scripts, with
     /// remaining scripts discovered from the OS per codepoint.
     fn compute_fallback(&self, cp: u32, wide: bool) -> i16 {
         let head: [i16; 3] = if wide {
             [COLOR, NOTO_MONO, JULIA]
         } else {
-            [NOTO_MONO, JULIA, COLOR]
+            [JULIA, NOTO_MONO, COLOR]
         };
         let order = head.into_iter().chain(SYSTEM..self.fonts.len() as i16);
         for i in order {
