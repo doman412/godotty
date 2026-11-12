@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::io;
 use std::os::fd::{BorrowedFd, OwnedFd};
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use portable_pty::{Child, ExitStatus, MasterPty, native_pty_system};
 use rustix::fs::{OFlags, fcntl_getfl, fcntl_setfl};
@@ -12,6 +13,9 @@ use super::{Drained, Options};
 /// Matches the Windows channel bound; a query-flooding child that never
 /// reads its input cannot grow the pending buffer without limit.
 const PENDING_CAP: usize = 4 * 1024 * 1024;
+
+/// How long teardown keeps draining the pty while the killed child exits.
+const TEARDOWN_DEADLINE: Duration = Duration::from_millis(500);
 
 /// Cloneable write handle to the pty master. The fd is non-blocking, so
 /// remainders the kernel refuses (large pastes) are buffered rather than
@@ -157,7 +161,21 @@ impl Pty {
 impl Drop for Pty {
     fn drop(&mut self) {
         let _ = self.child.kill();
-        let _ = self.child.wait();
+        // The shell is a session leader and cannot finish exiting while its
+        // output sits unread on the pty. The frame loop no longer reads the
+        // master here, so a blocking wait() would hang the editor. Drain while
+        // polling, and give up at the deadline; an unreaped child is cheaper
+        // than a frozen main thread.
+        let deadline = Instant::now() + TEARDOWN_DEADLINE;
+        loop {
+            let drained = self.drain(|_| {});
+            if self.exit_status().is_some() || Instant::now() >= deadline {
+                break;
+            }
+            if !matches!(drained, Drained::Data) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
     }
 }
 
